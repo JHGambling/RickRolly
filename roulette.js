@@ -101,29 +101,32 @@ function showResult() {
   const resultNum = numbers[idx];
   const resultColor = colors[idx];
   let msg = `Result: ${resultNum} (${resultColor})`;
-  if (currentBet) {
+  let winTotal = 0;
+  let loseTotal = 0;
+  bets.forEach(bet => {
+    const betAmount = parseInt(bet.amount, 10) || 10;
     let win = false;
     let payout = 0;
-    const betAmount = parseInt(currentBet.amount, 10) || 10;
-    if (currentBet.type === 'number' && currentBet.value === resultNum) {
+    if (bet.type === 'number' && bet.value === resultNum) {
       win = true;
       payout = betAmount * 36;
-    } else if (currentBet.type === 'color' && currentBet.value === resultColor) {
+    } else if (bet.type === 'color' && bet.value === resultColor) {
       win = true;
       payout = betAmount * 2;
     }
     if (win) {
       playerBudget = parseInt(playerBudget, 10) + payout;
-      msg += ` — You win $${payout}!`;
+      winTotal += payout;
     } else {
       playerBudget = parseInt(playerBudget, 10) - betAmount;
-      msg += ' — You lose!';
+      loseTotal += betAmount;
     }
-    updateBudgetDisplay();
-  }
+  });
+  updateBudgetDisplay();
+  if (winTotal > 0) msg += ` — You win $${winTotal}!`;
+  if (loseTotal > 0) msg += ` — You lose $${loseTotal}!`;
   betInfo.textContent = msg;
-  // Reset bet after showing result
-  currentBet = null;
+  clearBets();
 }
 
 // --- Betting Table Logic ---
@@ -210,7 +213,8 @@ function drawBettingTable() {
 drawBettingTable();
 
 // --- Chip Placement Logic ---
-let placedChip = null;
+// Replace single bet with multiple bets system
+let currentBets = []; // Array of { type, value, amount }
 
 let playerBudget = 1000;
 let currentBetAmount = 10;
@@ -251,86 +255,108 @@ function createChipSelector() {
 }
 createChipSelector();
 
-// Update placeChip to use currentBetAmount and check budget
-function placeChip(x, y, numberOrColor) {
+// Helper to check if a bet already exists on a field
+function betExistsOnField(value) {
+  return currentBets.some(bet => bet.value === value);
+}
+
+// Place or remove a chip (toggle bet) on click
+function placeOrRemoveChip(x, y, numberOrColor) {
   const betAmount = parseInt(currentBetAmount, 10) || 10;
+  const betIdx = currentBets.findIndex(bet => bet.value === numberOrColor);
+  if (betIdx !== -1) {
+    // Remove bet
+    currentBets.splice(betIdx, 1);
+    renderChips();
+    betInfo.textContent = typeof numberOrColor === 'number' ? `Bet removed from number ${numberOrColor}` : `Bet removed from color ${numberOrColor}`;
+    return;
+  }
   if (playerBudget < betAmount) {
     betInfo.textContent = 'Not enough budget!';
     return;
   }
+  // Add bet
+  currentBets.push({
+    type: typeof numberOrColor === 'number' ? 'number' : 'color',
+    value: numberOrColor,
+    amount: betAmount
+  });
+  renderChips();
+  betInfo.textContent = typeof numberOrColor === 'number' ? `Bet placed on number ${numberOrColor} ($${betAmount})` : `Bet placed on color ${numberOrColor} ($${betAmount})`;
+}
+
+// Render all chips for all bets
+function renderChips() {
   chipsContainer.innerHTML = '';
-
-  // Snap chip to center of field
-  let chipX = x;
-  let chipY = y;
-  if (typeof numberOrColor === 'number') {
-    // Number bet: snap to center of cell
-    if (numberOrColor === 0) {
-      chipX = tableMargin + cellW / 2;
-      chipY = tableMargin + cellH * 1.5;
-    } else {
-      const n = numberOrColor;
-      const col = Math.floor((n - 1) / 3);
-      const row = (n - 1) % 3;
-      chipX = tableMargin + cellW + col * cellW + cellW / 2;
-      chipY = tableMargin + row * cellH + cellH / 2;
+  currentBets.forEach(bet => {
+    let chipX, chipY;
+    if (typeof bet.value === 'number') {
+      if (bet.value === 0) {
+        chipX = tableMargin + cellW / 2;
+        chipY = tableMargin + cellH * 1.5;
+      } else {
+        const n = bet.value;
+        const col = Math.floor((n - 1) / 3);
+        const row = (n - 1) % 3;
+        chipX = tableMargin + cellW + col * cellW + cellW / 2;
+        chipY = tableMargin + row * cellH + cellH / 2;
+      }
+    } else if (typeof bet.value === 'string') {
+      const colorFieldW = 100;
+      const colorFieldH = 40;
+      const colorFieldY = tableMargin + cellH * 3 + 20;
+      let colorIdx = 0;
+      if (bet.value === 'black') colorIdx = 1;
+      if (bet.value === 'green') colorIdx = 2;
+      chipX = tableMargin + cellW + colorIdx * (colorFieldW + 10) + colorFieldW / 2;
+      chipY = colorFieldY + colorFieldH / 2;
     }
-  } else if (typeof numberOrColor === 'string') {
-    // Color bet: snap to center of color field
-    const colorFieldW = 100;
-    const colorFieldH = 40;
-    const colorFieldY = tableMargin + cellH * 3 + 20;
-    let colorIdx = 0;
-    if (numberOrColor === 'black') colorIdx = 1;
-    if (numberOrColor === 'green') colorIdx = 2;
-    chipX = tableMargin + cellW + colorIdx * (colorFieldW + 10) + colorFieldW / 2;
-    chipY = colorFieldY + colorFieldH / 2;
-  }
-
-  // Adjust chip placement to align with canvas offset
-  const containerRect = chipsContainer.getBoundingClientRect();
-  const canvasRect = tableCanvas.getBoundingClientRect();
-  const offsetX = canvasRect.left - containerRect.left;
-  const offsetY = canvasRect.top - containerRect.top;
-
-  // Chip color by amount
-  let chipColor = '#ffd700';
-  if (betAmount >= 500) chipColor = '#e63946'; // red for 500
-  else if (betAmount >= 100) chipColor = '#1976d2'; // blue for 100
-  else if (betAmount >= 50) chipColor = '#43a047'; // green for 50
-  // else gold for 10
-
-  const chip = document.createElement('div');
-  chip.className = 'chip';
-  chip.style.left = `${chipX + offsetX - 16}px`;
-  chip.style.top = `${chipY + offsetY - 16}px`;
-  chip.style.background = chipColor;
-  chip.textContent = betAmount;
-  chipsContainer.appendChild(chip);
-  placedChip = { numberOrColor };
-  currentBet = { type: typeof numberOrColor === 'number' ? 'number' : 'color', value: numberOrColor, amount: betAmount };
-  betInfo.textContent = currentBet.type === 'number' ? `Bet placed on number ${numberOrColor} ($${betAmount})` : `Bet placed on color ${numberOrColor} ($${betAmount})`;
+    // Adjust chip placement to align with canvas offset
+    const containerRect = chipsContainer.getBoundingClientRect();
+    const canvasRect = tableCanvas.getBoundingClientRect();
+    const offsetX = canvasRect.left - containerRect.left;
+    const offsetY = canvasRect.top - containerRect.top;
+    // Chip color by amount
+    let chipColor = '#ffd700';
+    if (bet.amount >= 500) chipColor = '#e63946';
+    else if (bet.amount >= 100) chipColor = '#1976d2';
+    else if (bet.amount >= 50) chipColor = '#43a047';
+    // else gold for 10
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.style.left = `${chipX + offsetX - 16}px`;
+    chip.style.top = `${chipY + offsetY - 16}px`;
+    chip.style.background = chipColor;
+    chip.textContent = bet.amount;
+    chipsContainer.appendChild(chip);
+  });
 }
 
 // Handle click on table to place bet
-// Only allow number bets for now
-// Map click to cell
 function getNumberFromTableClick(x, y) {
-  const relX = x - tableMargin;
-  const relY = y - tableMargin;
   // Check 0 cell
-  if (relX >= 0 && relX < cellW && relY >= 0 && relY < cellH * 3) return 0;
-  // Check grid
-  if (relX >= cellW && relX < cellW * 13 && relY >= 0 && relY < cellH * 3) {
-    const col = Math.floor((relX - cellW) / cellW);
-    const row = Math.floor(relY / cellH);
-    const n = 1 + col * 3 + row;
-    if (n >= 1 && n <= 36) return n;
+  const zeroX = zeroCell.x + tableMargin;
+  const zeroY = zeroCell.y + tableMargin;
+  if (x >= zeroX && x < zeroX + zeroCell.w && y >= zeroY && y < zeroY + zeroCell.h) {
+    return 0; // 0 cell
+  }
+  // Check number grid (1-36)
+  if (x >= tableMargin + cellW && x < tableMargin + cellW * 13 && y >= tableMargin && y < tableMargin + cellH * 3) {
+    const col = Math.floor((x - (tableMargin + cellW)) / cellW);
+    const row = Math.floor((y - tableMargin) / cellH);
+    // The table is filled column-wise: each column has 3 numbers, from bottom to top (row 2 is bottom, row 0 is top)
+    // numbers on table: [row 0][col], [row 1][col], [row 2][col] => numbers[(col*3)+row]
+    const idx = col * 3 + row + 1; // +1 because numbers[0] is 0
+    if (idx >= 1 && idx <= 36) {
+      // Find the actual roulette number for this cell
+      // The numbers array is the wheel order, but the table is sequential 1-36
+      return idx;
+    }
   }
   // Check color fields
-  const colorFieldY = tableMargin + cellH * 3 + 20;
   const colorFieldW = 100;
   const colorFieldH = 40;
+  const colorFieldY = tableMargin + cellH * 3 + 20;
   const colorFields = [
     { color: 'red', x: tableMargin + cellW },
     { color: 'black', x: tableMargin + cellW + colorFieldW + 10 },
@@ -344,7 +370,7 @@ function getNumberFromTableClick(x, y) {
       return field.color;
     }
   }
-  return null;
+  return null; // Outside of any clickable area
 }
 
 tableCanvas.addEventListener('click', (e) => {
@@ -353,21 +379,17 @@ tableCanvas.addEventListener('click', (e) => {
   const y = e.clientY - rect.top;
   const result = getNumberFromTableClick(x, y);
   if (typeof result === 'number' && result !== null) {
-    placeChip(x, y, result);
-    currentBet = { type: 'number', value: result };
-    betInfo.textContent = `Bet placed on number ${result}`;
+    placeOrRemoveChip(x, y, result);
   } else if (typeof result === 'string') {
-    placeChip(x, y, result);
-    currentBet = { type: 'color', value: result };
-    betInfo.textContent = `Bet placed on color ${result}`;
+    placeOrRemoveChip(x, y, result);
   }
 });
 
-// Update: Only allow spin if a chip is placed
+// Only allow spin if at least one bet is placed
 function spinWheel() {
   if (spinning) return;
-  if (!currentBet) {
-    betInfo.textContent = 'Please place a bet by clicking a number on the table!';
+  if (!currentBets.length) {
+    betInfo.textContent = 'Please place at least one bet by clicking the table!';
     return;
   }
   spinning = true;
@@ -384,9 +406,10 @@ function spinWheel() {
       requestAnimationFrame(animate);
     } else {
       spinning = false;
-      showResult();
-      // Remove chip after spin
+      showResultMulti();
+      // Remove chips after spin
       chipsContainer.innerHTML = '';
+      currentBets = [];
     }
   }
   requestAnimationFrame(animate);
@@ -394,3 +417,42 @@ function spinWheel() {
 
 drawWheel();
 document.getElementById('spin-btn').addEventListener('click', spinWheel);
+
+// Show result for all bets
+function showResultMulti() {
+  const idx = getResultIndex();
+  const resultNum = numbers[idx];
+  const resultColor = colors[idx];
+  let msg = `Result: ${resultNum} (${resultColor})`;
+  let totalWin = 0;
+  let totalLoss = 0;
+  let winDetails = [];
+  let lossDetails = [];
+  currentBets.forEach(bet => {
+    let win = false;
+    let payout = 0;
+    if (bet.type === 'number' && bet.value === resultNum) {
+      win = true;
+      payout = bet.amount * 36;
+    } else if (bet.type === 'color' && bet.value === resultColor) {
+      win = true;
+      payout = bet.amount * 2;
+    }
+    if (win) {
+      totalWin += payout;
+      winDetails.push(`${bet.type === 'number' ? bet.value : bet.value.charAt(0).toUpperCase() + bet.value.slice(1)} ($${bet.amount} → $${payout})`);
+    } else {
+      totalLoss += bet.amount;
+      lossDetails.push(`${bet.type === 'number' ? bet.value : bet.value.charAt(0).toUpperCase() + bet.value.slice(1)} ($${bet.amount})`);
+    }
+  });
+  playerBudget = parseInt(playerBudget, 10) + totalWin - totalLoss;
+  updateBudgetDisplay();
+  if (winDetails.length) {
+    msg += ` — Win: ${winDetails.join(', ')}`;
+  }
+  if (lossDetails.length) {
+    msg += ` — Lose: ${lossDetails.join(', ')}`;
+  }
+  betInfo.textContent = msg;
+}
