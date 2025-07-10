@@ -366,13 +366,13 @@ function renderChips() {
         chipY = tableMargin + row * cellH + cellH / 2;
       }
     } else if (typeof bet.value === 'string') {
-      const colorFieldW = 100;
-      const colorFieldH = 40;
+      // Use the same logic as in drawBettingTable and getNumberFromTableClick
       const colorFieldY = tableMargin + cellH * 3 + 20;
-      let colorIdx = 0;
-      if (bet.value === 'black') colorIdx = 1;
-      if (bet.value === 'green') colorIdx = 2;
-      chipX = tableMargin + cellW + colorIdx * (colorFieldW + 10) + colorFieldW / 2;
+      const colorFieldW = cellW * cols;
+      const colorFieldH = 40;
+      const halfW = colorFieldW / 2;
+      let colorIdx = bet.value === 'black' ? 1 : 0;
+      chipX = tableMargin + cellW + colorIdx * halfW + halfW / 2;
       chipY = colorFieldY + colorFieldH / 2;
     }
     // Adjust chip placement to align with canvas offset
