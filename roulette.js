@@ -219,6 +219,15 @@ let currentBets = []; // Array of { type, value, amount }
 
 let playerBudget = 1000;
 let currentBetAmount = 10;
+let collegeFundUsed = false;
+let bailoutStage = 0; // 0: none, 1: college, 2: car, 3: wife, 4: house, 5: soul
+const bailouts = [
+  { label: "Gamble your child's college fund for $20.000", amount: 20000 },
+  { label: "Sell your car for $50.000", amount: 50000 },
+  { label: "Sell your wife for $1", amount: 1 },
+  { label: "Sell your house for $250.000", amount: 250000 },
+  { label: "Sell your soul for $1.000.000", amount: 1000000 }
+];
 
 function updateBudgetDisplay() {
   let budgetDisplay = document.getElementById('budget-display');
@@ -235,6 +244,9 @@ function updateBudgetDisplay() {
     document.body.insertBefore(budgetDisplay, document.body.children[2]);
   }
   budgetDisplay.textContent = `Budget: $${parseInt(playerBudget, 10).toLocaleString('de-DE')}`;
+  // Remove bailout button if present (it is only shown after losing)
+  let bailoutBtn = document.getElementById('bailout-btn');
+  if (bailoutBtn) bailoutBtn.remove();
 }
 
 // Restore the old chip selector
@@ -243,10 +255,17 @@ function createChipSelector() {
   if (!selector) {
     selector = document.createElement('select');
     selector.id = 'chip-selector';
-    [10, 50, 100, 500].forEach(val => {
+    [10, 50, 100, 500, 'allin'].forEach(val => {
       const opt = document.createElement('option');
-      opt.value = val;
-      opt.textContent = `$${val}`;
+      if (val === 'allin') {
+        opt.value = 'allin';
+        opt.textContent = 'All In';
+        opt.style.color = '#fff';
+        opt.style.background = '#8e24aa';
+      } else {
+        opt.value = val;
+        opt.textContent = `$${val}`;
+      }
       selector.appendChild(opt);
     });
     selector.style.marginRight = '10px';
@@ -260,7 +279,11 @@ function createChipSelector() {
     selector.style.outline = 'none';
     selector.style.fontWeight = 'bold';
     selector.addEventListener('change', e => {
-      currentBetAmount = parseInt(e.target.value, 10) || 10;
+      if (e.target.value === 'allin') {
+        currentBetAmount = playerBudget;
+      } else {
+        currentBetAmount = parseInt(e.target.value, 10) || 10;
+      }
     });
     const label = document.createElement('label');
     label.textContent = 'Choose Chip:';
@@ -322,7 +345,14 @@ showBettingTable();
 
 // Place or remove a chip (toggle bet) on click
 function placeOrRemoveChip(x, y, numberOrColor) {
-  const betAmount = parseInt(currentBetAmount, 10) || 10;
+  // Always update all-in to current budget if selected
+  const chipSelector = document.getElementById('chip-selector');
+  let betAmount;
+  if (chipSelector && chipSelector.value === 'allin') {
+    betAmount = playerBudget;
+  } else {
+    betAmount = parseInt(currentBetAmount, 10) || 10;
+  }
   const betIdx = currentBets.findIndex(bet => bet.value === numberOrColor);
   if (betIdx !== -1) {
     // Remove bet and refund
@@ -333,7 +363,7 @@ function placeOrRemoveChip(x, y, numberOrColor) {
     betInfo.textContent = typeof numberOrColor === 'number' ? `Bet removed from number ${numberOrColor}` : `Bet removed from color ${numberOrColor}`;
     return;
   }
-  if (playerBudget < betAmount) {
+  if (playerBudget < betAmount || betAmount <= 0) {
     betInfo.textContent = 'Not enough budget!';
     return;
   }
@@ -382,18 +412,42 @@ function renderChips() {
     const offsetY = canvasRect.top - containerRect.top;
     // Chip color by amount
     let chipColor = '#ffd700';
-    if (bet.amount >= 500) chipColor = '#e63946';
+    let isAllIn = false;
+    if (bet.amount === playerBudget + bet.amount && bet.amount > 0) {
+      chipColor = '#8e24aa'; // fallback color
+      isAllIn = true;
+    } else if (bet.amount >= 500) chipColor = '#e63946';
     else if (bet.amount >= 100) chipColor = '#1976d2';
     else if (bet.amount >= 50) chipColor = '#43a047';
     // else gold for 10
     const chip = document.createElement('div');
-    chip.className = 'chip';
+    chip.className = 'chip' + (isAllIn ? ' chip-allin' : '');
     chip.style.left = `${chipX + offsetX - 16}px`;
     chip.style.top = `${chipY + offsetY - 16}px`;
     chip.style.background = chipColor;
     chip.textContent = bet.amount;
     chipsContainer.appendChild(chip);
   });
+  // Inject rainbow CSS if not present
+  if (!document.getElementById('chip-allin-style')) {
+    const style = document.createElement('style');
+    style.id = 'chip-allin-style';
+    style.textContent = `
+      .chip-allin {
+        background: linear-gradient(270deg, #ff0000, #ff9900, #ffee00, #33ff00, #00ffee, #0066ff, #cc00ff, #ff0080, #ff0000);
+        background-size: 1800% 1800%;
+        animation: chipRainbow 2.5s linear infinite;
+        color: #fff;
+        border: 2px solid #fff;
+        box-shadow: 0 0 16px 4px #fff7, 0 0 8px 2px #8e24aa;
+      }
+      @keyframes chipRainbow {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 100% 50%; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
 }
 
 // Handle click on table to place bet
@@ -491,6 +545,7 @@ function showResultMulti() {
   let lossDetails = [];
   let winType = null; // For animation
   let winOnZero = false;
+  let lostAll = false;
   currentBets.forEach(bet => {
     let win = false;
     let payout = 0;
@@ -530,6 +585,40 @@ function showResultMulti() {
   } else if (winType === 'color') {
     animType = 'color';
   }
+  // Show bailout button only after losing and budget is 0, and only once per stage
+  if (animType === 'loss' && playerBudget === 0) {
+    if (bailoutStage < bailouts.length) {
+      let budgetDisplay = document.getElementById('budget-display');
+      let bailoutBtn = document.getElementById('bailout-btn');
+      if (!bailoutBtn) {
+        bailoutBtn = document.createElement('button');
+        bailoutBtn.id = 'bailout-btn';
+        bailoutBtn.textContent = bailouts[bailoutStage].label;
+        bailoutBtn.style.display = 'block';
+        bailoutBtn.style.margin = '18px auto 0 auto';
+        bailoutBtn.style.padding = '16px 32px';
+        bailoutBtn.style.fontSize = '1.3rem';
+        bailoutBtn.style.fontWeight = 'bold';
+        bailoutBtn.style.background = 'linear-gradient(90deg,#ffd700,#e63946,#ffd700)';
+        bailoutBtn.style.color = '#222';
+        bailoutBtn.style.border = '3px solid #ffd700';
+        bailoutBtn.style.borderRadius = '12px';
+        bailoutBtn.style.boxShadow = '0 2px 16px #0008';
+        bailoutBtn.style.cursor = 'pointer';
+        bailoutBtn.addEventListener('click', () => {
+          playerBudget = bailouts[bailoutStage].amount;
+          betInfo.textContent = bailouts[bailoutStage].label.replace(/ for .*/, ' acquired! Good luck!');
+          bailoutStage++;
+          updateBudgetDisplay();
+        });
+        budgetDisplay.insertAdjacentElement('afterend', bailoutBtn);
+      }
+    } else {
+      // All bailouts used, show final loss screen
+      showFinalLossScreen();
+      return;
+    }
+  }
   // Play animation, then after it finishes, hide wheel and show table
   showWinAnim(animType, animType === 'loss' ? 0 : totalWin, () => {
     // Remove chips after spin
@@ -537,6 +626,36 @@ function showResultMulti() {
     currentBets = [];
     // Show betting table again after animation
     showBettingTable();
+  });
+}
+
+// Add a function to show the final loss screen
+function showFinalLossScreen() {
+  let overlay = document.getElementById('final-loss-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'final-loss-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.background = '#000';
+    overlay.style.zIndex = '99999';
+    overlay.style.display = 'flex';
+    overlay.style.flexDirection = 'column';
+    overlay.style.justifyContent = 'center';
+    overlay.style.alignItems = 'center';
+    overlay.innerHTML = `<div style="color:#e63946;font-size:2.5rem;font-family:'Arial Black',Arial,sans-serif;text-align:center;max-width:90vw;line-height:1.3;text-shadow:0 0 16px #e63946,0 0 2px #fff;">
+      You lost everything,<br>you're homeless,<br>your wife and car are gone,<br>and you go to hell due to losing your soul to SATAN.
+    </div>`;
+    document.body.appendChild(overlay);
+  }
+  // Hide all other UI
+  document.body.childNodes.forEach(node => {
+    if (node !== overlay) {
+      if (node.style) node.style.display = 'none';
+    }
   });
 }
 
@@ -573,6 +692,11 @@ function showWinAnim(type, amount, onDone) {
 }
 // Expose showWinAnim globally for F12 console
 window.showWinAnim = showWinAnim;
+// Expose final loss screen trigger for F12 console
+defineFinalLossTrigger();
+function defineFinalLossTrigger() {
+  window.triggerFinalLossScreen = showFinalLossScreen;
+}
 
 // Simple confetti effect using emojis
 function confettiEffect(count, ...colors) {
