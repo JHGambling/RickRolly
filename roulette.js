@@ -234,7 +234,7 @@ function updateBudgetDisplay() {
     budgetDisplay.style.textAlign = 'center';
     document.body.insertBefore(budgetDisplay, document.body.children[2]);
   }
-  budgetDisplay.textContent = `Budget: $${parseInt(playerBudget, 10)}`;
+  budgetDisplay.textContent = `Budget: $${parseInt(playerBudget, 10).toLocaleString('de-DE')}`;
 }
 
 // Restore the old chip selector
@@ -616,3 +616,11 @@ showBettingTable = (function(orig) {
     hideOriginalBettingForm();
   };
 })(showBettingTable);
+
+// Allow setting budget from console for testing
+window.setBudget = function(amount) {
+  playerBudget = parseInt(amount, 10) || 0;
+  updateBudgetDisplay();
+  betInfo.textContent = `Budget set to $${playerBudget}`;
+  renderChips();
+};
