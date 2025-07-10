@@ -1,11 +1,8 @@
-# Rick Rolly
+# RickRolly
+This is RickRolly, the roulette machine for the JHGambling Casino 
 
-A visually appealing, web-based roulette game with a casino-style betting table, chip selection, and player budget system.
+Look here for deeper introduction video: https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL8dZXjD8meS_WZzEKSReIBPLzKaW3HboH&index=1
 
-## How to use on GitHub Pages
+## Our mascot:
 
-1. Push all files (`index.html`, `style.css`, `roulette.js`, etc.) to your repository's root (not in a subfolder).
-2. Enable GitHub Pages in your repository settings, using the `main` branch and `/ (root)` as the source.
-3. Visit `https://<your-username>.github.io/<your-repo>/` to play!
-
-No build step is required. All assets are static and ready for GitHub Pages.
+![](ricky.gif)
