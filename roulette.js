@@ -487,7 +487,6 @@ function showResultMulti() {
   const resultColor = colors[idx];
   let msg = `Result: ${resultNum} (${resultColor})`;
   let totalWin = 0;
-  let totalLoss = 0;
   let winDetails = [];
   let lossDetails = [];
   let winType = null; // For animation
@@ -509,11 +508,11 @@ function showResultMulti() {
       totalWin += payout;
       winDetails.push(`${bet.type === 'number' ? bet.value : bet.value.charAt(0).toUpperCase() + bet.value.slice(1)} ($${bet.amount} → $${payout})`);
     } else {
-      totalLoss += bet.amount;
       lossDetails.push(`${bet.type === 'number' ? bet.value : bet.value.charAt(0).toUpperCase() + bet.value.slice(1)} ($${bet.amount})`);
     }
   });
-  playerBudget = parseInt(playerBudget, 10) + totalWin - totalLoss;
+  // Only add winnings, do not subtract losses again
+  playerBudget = parseInt(playerBudget, 10) + totalWin;
   updateBudgetDisplay();
   if (winDetails.length) {
     msg += ` — Win: ${winDetails.join(', ')}`;
@@ -532,7 +531,7 @@ function showResultMulti() {
     animType = 'color';
   }
   // Play animation, then after it finishes, hide wheel and show table
-  showWinAnim(animType, animType === 'loss' ? totalLoss : totalWin, () => {
+  showWinAnim(animType, animType === 'loss' ? 0 : totalWin, () => {
     // Remove chips after spin
     chipsContainer.innerHTML = '';
     currentBets = [];
