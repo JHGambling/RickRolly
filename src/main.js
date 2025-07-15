@@ -327,7 +327,7 @@ function handleTableClick(e) {
   }
 }
 
-function getNumberFromTableClick(x, y) {
+/*function getNumberFromTableClick(x, y) {
   const tableMargin = 20;
   const cellW = 60;
   const cellH = 50;
@@ -369,7 +369,7 @@ function getNumberFromTableClick(x, y) {
     }
   }
   return null;
-}
+}*/
 
 async function placeOrRemoveChip(x, y, numberOrColor) {
   // Always update all-in to current budget if selected
