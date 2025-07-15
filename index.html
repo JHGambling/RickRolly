@@ -1,48 +1,40 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Rick Rolly</title>
-        <link rel="stylesheet" href="style.css" />
-    </head>
-    <body>
-        <div id="header-bar">
-            <h1 id="main-title" style="color: #fff">Rick Rolly</h1>
-            <div id="budget-display"></div>
-        </div>
-        <div id="win-anim-overlay"></div>
-        <form id="bet-form" style="margin-bottom: 20px; color: #fff">
-            <label for="bet-type">Bet on:</label>
-            <select id="bet-type" name="bet-type">
-                <option value="number">Number</option>
-                <option value="color">Color</option>
-            </select>
-            <input
-                type="number"
-                id="bet-number"
-                name="bet-number"
-                min="0"
-                max="36"
-                placeholder="Number (0-36)"
-                style="width: 120px"
-            />
-            <select id="bet-color" name="bet-color" style="display: none">
-                <option value="red">Red</option>
-                <option value="black">Black</option>
-            </select>
-            <button type="submit">Place Bet</button>
-            <span id="bet-info" style="margin-left: 15px"></span>
-        </form>
-        <div id="betting-table-container">
-            <canvas id="betting-table" width="900" height="250"></canvas>
-            <div id="chips-container"></div>
-        </div>
-        <div id="roulette-container">
-            <canvas id="roulette-wheel" width="400" height="400"></canvas>
-            <div id="pointer"></div>
-        </div>
-        <button id="spin-btn">Spin</button>
-        <script type="module" src="src/main.js"></script>
-    </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rick Rolly</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="header-bar">
+    <h1 id="main-title" style="color:#fff;">Rick Rolly</h1>
+    <div id="budget-display"></div>
+  </div>
+  <div id="win-anim-overlay"></div>
+  <form id="bet-form" style="margin-bottom:20px; color:#fff;">
+    <label for="bet-type">Bet on:</label>
+    <select id="bet-type" name="bet-type">
+      <option value="number">Number</option>
+      <option value="color">Color</option>
+    </select>
+    <input type="number" id="bet-number" name="bet-number" min="0" max="36" placeholder="Number (0-36)" style="width:120px;">
+    <select id="bet-color" name="bet-color" style="display:none;">
+      <option value="red">Red</option>
+      <option value="black">Black</option>
+    </select>
+    <button type="submit">Place Bet</button>
+    <span id="bet-info" style="margin-left:15px;"></span>
+  </form>
+  <div id="betting-table-container">
+    <canvas id="betting-table" width="900" height="250"></canvas>
+    <div id="chips-container"></div>
+  </div>
+  <div id="roulette-container">
+    <canvas id="roulette-wheel" width="400" height="400"></canvas>
+    <div id="pointer"></div>
+  </div>
+  <button id="spin-btn">Spin</button>
+  <script src="roulette.js"></script>
+</body>
 </html>
