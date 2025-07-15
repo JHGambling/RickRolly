@@ -201,6 +201,24 @@ function drawBettingTable() {
   });
 }
 
+drawBettingTable();
+
+// --- Chip Placement Logic ---
+// Replace single bet with multiple bets system
+//let currentBets = []; // Array of { type, value, amount }
+
+//let playerBudget = 1000;
+//let currentBetAmount = 10;
+let collegeFundUsed = false;
+let bailoutStage = 0; // 0: none, 1: college, 2: car, 3: wife, 4: house, 5: soul
+const bailouts = [
+  { label: "Gamble your child's college fund for $20.000", amount: 20000 },
+  { label: "Sell your car for $50.000", amount: 50000 },
+  { label: "Sell your wife for $1", amount: 1 },
+  { label: "Sell your house for $250.000", amount: 250000 },
+  { label: "Sell your soul for $1.000.000", amount: 1000000 }
+];
+
 function updateBudgetDisplay() {
   let budgetDisplay = document.getElementById('budget-display');
   if (!budgetDisplay) {
@@ -215,7 +233,10 @@ function updateBudgetDisplay() {
     budgetDisplay.style.textAlign = 'center';
     document.body.insertBefore(budgetDisplay, document.body.children[2]);
   }
-  budgetDisplay.textContent = `Budget: $${parseInt(playerBudget, 10)}`;
+  budgetDisplay.textContent = `Budget: $${parseInt(playerBudget, 10).toLocaleString('de-DE')}`;
+  // Remove bailout button if present (it is only shown after losing)
+  let bailoutBtn = document.getElementById('bailout-btn');
+  if (bailoutBtn) bailoutBtn.remove();
 }
 
 function createChipSelector() {
@@ -223,10 +244,17 @@ function createChipSelector() {
   if (!selector) {
     selector = document.createElement('select');
     selector.id = 'chip-selector';
-    [10, 50, 100, 500].forEach(val => {
+    [10, 50, 100, 500, 'allin'].forEach(val => {
       const opt = document.createElement('option');
-      opt.value = val;
-      opt.textContent = `$${val}`;
+      if (val === 'allin') {
+        opt.value = 'allin';
+        opt.textContent = 'All In';
+        opt.style.color = '#fff';
+        opt.style.background = '#8e24aa';
+      } else {
+        opt.value = val;
+        opt.textContent = `$${val}`;
+      }
       selector.appendChild(opt);
     });
     selector.style.marginRight = '10px';
@@ -240,7 +268,11 @@ function createChipSelector() {
     selector.style.outline = 'none';
     selector.style.fontWeight = 'bold';
     selector.addEventListener('change', e => {
-      currentBetAmount = parseInt(e.target.value, 10) || 10;
+      if (e.target.value === 'allin') {
+        currentBetAmount = playerBudget;
+      } else {
+        currentBetAmount = parseInt(e.target.value, 10) || 10;
+      }
     });
     const label = document.createElement('label');
     label.textContent = 'Choose Chip:';
@@ -340,7 +372,14 @@ function getNumberFromTableClick(x, y) {
 }
 
 async function placeOrRemoveChip(x, y, numberOrColor) {
-  const betAmount = parseInt(currentBetAmount, 10) || 10;
+  // Always update all-in to current budget if selected
+  const chipSelector = document.getElementById('chip-selector');
+  let betAmount;
+  if (chipSelector && chipSelector.value === 'allin') {
+    betAmount = playerBudget;
+  } else {
+    betAmount = parseInt(currentBetAmount, 10) || 10;
+  }
   const betIdx = currentBets.findIndex(bet => bet.value === numberOrColor);
 
   if (betIdx !== -1) {
@@ -353,8 +392,7 @@ async function placeOrRemoveChip(x, y, numberOrColor) {
     betInfo.textContent = typeof numberOrColor === 'number' ? `Bet removed from number ${numberOrColor}` : `Bet removed from color ${numberOrColor}`;
     return;
   }
-
-  if (playerBudget < betAmount) {
+  if (playerBudget < betAmount || betAmount <= 0) {
     betInfo.textContent = 'Not enough budget!';
     return;
   }
@@ -392,12 +430,12 @@ function renderChips() {
         chipY = tableMargin + row * cellH + cellH / 2;
       }
     } else if (typeof bet.value === 'string') {
-      const colorFieldW = cellW * 12;
-      const colorFieldH = 40;
+      // Use the same logic as in drawBettingTable and getNumberFromTableClick
       const colorFieldY = tableMargin + cellH * 3 + 20;
+      const colorFieldW = cellW * cols;
+      const colorFieldH = 40;
       const halfW = colorFieldW / 2;
-      let colorIdx = 0;
-      if (bet.value === 'black') colorIdx = 1;
+      let colorIdx = bet.value === 'black' ? 1 : 0;
       chipX = tableMargin + cellW + colorIdx * halfW + halfW / 2;
       chipY = colorFieldY + colorFieldH / 2;
     }
@@ -410,38 +448,98 @@ function renderChips() {
 
     // Chip color by amount
     let chipColor = '#ffd700';
-    if (bet.amount >= 500) chipColor = '#e63946';
+    let isAllIn = false;
+    if (bet.amount === playerBudget + bet.amount && bet.amount > 0) {
+      chipColor = '#8e24aa'; // fallback color
+      isAllIn = true;
+    } else if (bet.amount >= 500) chipColor = '#e63946';
     else if (bet.amount >= 100) chipColor = '#1976d2';
     else if (bet.amount >= 50) chipColor = '#43a047';
 
     const chip = document.createElement('div');
-    chip.className = 'chip';
+    chip.className = 'chip' + (isAllIn ? ' chip-allin' : '');
     chip.style.left = `${chipX + offsetX - 16}px`;
     chip.style.top = `${chipY + offsetY - 16}px`;
     chip.style.background = chipColor;
     chip.textContent = bet.amount;
     chipsContainer.appendChild(chip);
   });
+  // Inject rainbow CSS if not present
+  if (!document.getElementById('chip-allin-style')) {
+    const style = document.createElement('style');
+    style.id = 'chip-allin-style';
+    style.textContent = `
+      .chip-allin {
+        background: linear-gradient(270deg, #ff0000, #ff9900, #ffee00, #33ff00, #00ffee, #0066ff, #cc00ff, #ff0080, #ff0000);
+        background-size: 1800% 1800%;
+        animation: chipRainbow 2.5s linear infinite;
+        color: #fff;
+        border: 2px solid #fff;
+        box-shadow: 0 0 16px 4px #fff7, 0 0 8px 2px #8e24aa;
+      }
+      @keyframes chipRainbow {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 100% 50%; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
 }
 
-function showBettingTable() {
-  document.getElementById('betting-table-container').style.display = '';
-  const rouletteContainer = document.getElementById('roulette-container');
-  rouletteContainer.style.display = 'none';
-  rouletteContainer.style.marginTop = '';
-  const chipSelector = document.getElementById('chip-selector');
-  if (chipSelector) chipSelector.parentElement.style.display = '';
+// Handle click on table to place bet
+function getNumberFromTableClick(x, y) {
+  // Check 0 cell
+  const zeroX = zeroCell.x + tableMargin;
+  const zeroY = zeroCell.y + tableMargin;
+  if (x >= zeroX && x < zeroX + zeroCell.w && y >= zeroY && y < zeroY + zeroCell.h) {
+    return 0; // 0 cell
+  }
+  // Check number grid (1-36)
+  if (x >= tableMargin + cellW && x < tableMargin + cellW * 13 && y >= tableMargin && y < tableMargin + cellH * 3) {
+    const col = Math.floor((x - (tableMargin + cellW)) / cellW);
+    const row = Math.floor((y - tableMargin) / cellH);
+    // The table is filled column-wise: each column has 3 numbers, from bottom to top (row 2 is bottom, row 0 is top)
+    // numbers on table: [row 0][col], [row 1][col], [row 2][col] => numbers[(col*3)+row]
+    const idx = col * 3 + row + 1; // +1 because numbers[0] is 0
+    if (idx >= 1 && idx <= 36) {
+      // Find the actual roulette number for this cell
+      // The numbers array is the wheel order, but the table is sequential 1-36
+      return idx;
+    }
+  }
+  // Check color fields
+  const colorFieldW = cellW * cols;
+  const colorFieldH = 40;
+  const colorFieldY = tableMargin + cellH * 3 + 20;
+  const halfW = colorFieldW / 2;
+  const colorFields = [
+    { color: 'red', x: tableMargin + cellW },
+    { color: 'black', x: tableMargin + cellW + halfW }
+  ];
+  for (const field of colorFields) {
+    if (
+      x >= field.x && x <= field.x + halfW &&
+      y >= colorFieldY && y <= colorFieldY + colorFieldH
+    ) {
+      return field.color;
+    }
+  }
+  return null; // Outside of any clickable area
 }
 
-function showRouletteWheel() {
-  document.getElementById('betting-table-container').style.display = 'none';
-  const rouletteContainer = document.getElementById('roulette-container');
-  rouletteContainer.style.display = '';
-  rouletteContainer.style.marginTop = '40px';
-  const chipSelector = document.getElementById('chip-selector');
-  if (chipSelector) chipSelector.parentElement.style.display = 'none';
-}
+tableCanvas.addEventListener('click', (e) => {
+  const rect = tableCanvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const result = getNumberFromTableClick(x, y);
+  if (typeof result === 'number' && result !== null) {
+    placeOrRemoveChip(x, y, result);
+  } else if (typeof result === 'string') {
+    placeOrRemoveChip(x, y, result);
+  }
+});
 
+// Only allow spin if at least one bet is placed
 function spinWheel() {
   if (spinning) return;
   if (!currentBets.length) {
@@ -483,12 +581,11 @@ async function showResultMulti() {
   const resultColor = colors[idx];
   let msg = `Result: ${resultNum} (${resultColor})`;
   let totalWin = 0;
-  let totalLoss = 0;
   let winDetails = [];
   let lossDetails = [];
   let winType = null;
   let winOnZero = false;
-
+  let lostAll = false;
   currentBets.forEach(bet => {
     let win = false;
     let payout = 0;
@@ -506,12 +603,12 @@ async function showResultMulti() {
       totalWin += payout;
       winDetails.push(`${bet.type === 'number' ? bet.value : bet.value.charAt(0).toUpperCase() + bet.value.slice(1)} ($${bet.amount} → $${payout})`);
     } else {
-      totalLoss += bet.amount;
       lossDetails.push(`${bet.type === 'number' ? bet.value : bet.value.charAt(0).toUpperCase() + bet.value.slice(1)} ($${bet.amount})`);
     }
   });
 
-  playerBudget = parseInt(playerBudget, 10) + totalWin - totalLoss;
+  // Only add winnings, do not subtract losses again
+  playerBudget = parseInt(playerBudget, 10) + totalWin;
 
   // Process SDK transactions
   if (totalWin > 0) {
@@ -537,14 +634,50 @@ async function showResultMulti() {
   } else if (winType === 'color') {
     animType = 'color';
   }
-
-  showWinAnim(animType, animType === 'loss' ? totalLoss : totalWin, () => {
+  // Show bailout button only after losing and budget is 0, and only once per stage
+  if (animType === 'loss' && playerBudget === 0) {
+    if (bailoutStage < bailouts.length) {
+      let budgetDisplay = document.getElementById('budget-display');
+      let bailoutBtn = document.getElementById('bailout-btn');
+      if (!bailoutBtn) {
+        bailoutBtn = document.createElement('button');
+        bailoutBtn.id = 'bailout-btn';
+        bailoutBtn.textContent = bailouts[bailoutStage].label;
+        bailoutBtn.style.display = 'block';
+        bailoutBtn.style.margin = '18px auto 0 auto';
+        bailoutBtn.style.padding = '16px 32px';
+        bailoutBtn.style.fontSize = '1.3rem';
+        bailoutBtn.style.fontWeight = 'bold';
+        bailoutBtn.style.background = 'linear-gradient(90deg,#ffd700,#e63946,#ffd700)';
+        bailoutBtn.style.color = '#222';
+        bailoutBtn.style.border = '3px solid #ffd700';
+        bailoutBtn.style.borderRadius = '12px';
+        bailoutBtn.style.boxShadow = '0 2px 16px #0008';
+        bailoutBtn.style.cursor = 'pointer';
+        bailoutBtn.addEventListener('click', () => {
+          playerBudget = bailouts[bailoutStage].amount;
+          betInfo.textContent = bailouts[bailoutStage].label.replace(/ for .*/, ' acquired! Good luck!');
+          bailoutStage++;
+          updateBudgetDisplay();
+        });
+        budgetDisplay.insertAdjacentElement('afterend', bailoutBtn);
+      }
+    } else {
+      // All bailouts used, show final loss screen
+      showFinalLossScreen();
+      return;
+    }
+  }
+  // Play animation, then after it finishes, hide wheel and show table
+  showWinAnim(animType, animType === 'loss' ? 0 : totalWin, () => {
+    // Remove chips after spin
     chipsContainer.innerHTML = '';
     currentBets = [];
     showBettingTable();
   });
 }
 
+// Show win/loss animation overlay
 function showWinAnim(type, amount, onDone) {
   const overlay = document.getElementById('win-anim-overlay');
   overlay.innerHTML = '';
@@ -574,6 +707,13 @@ function showWinAnim(type, amount, onDone) {
     overlay.style.background = 'transparent';
     if (typeof onDone === 'function') onDone();
   }, 2200);
+}
+// Expose showWinAnim globally for F12 console
+window.showWinAnim = showWinAnim;
+// Expose final loss screen trigger for F12 console
+defineFinalLossTrigger();
+function defineFinalLossTrigger() {
+  window.triggerFinalLossScreen = showFinalLossScreen;
 }
 
 function confettiEffect(count, ...colors) {
@@ -606,6 +746,21 @@ function hideOriginalBettingForm() {
     if (el && el.id === id) el.style.display = 'none';
   });
 }
+// Hide the original betting form interface on load and after UI updates
+hideOriginalBettingForm();
 
-// Expose showWinAnim globally for F12 console
-window.showWinAnim = showWinAnim;
+// After UI changes that might show the form again, call hideOriginalBettingForm
+showBettingTable = (function(orig) {
+  return function() {
+    orig.apply(this, arguments);
+    hideOriginalBettingForm();
+  };
+})(showBettingTable);
+
+// Allow setting budget from console for testing
+window.setBudget = function(amount) {
+  playerBudget = parseInt(amount, 10) || 0;
+  updateBudgetDisplay();
+  betInfo.textContent = `Budget set to $${playerBudget}`;
+  renderChips();
+};
