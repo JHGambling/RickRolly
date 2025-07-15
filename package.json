@@ -1,0 +1,23 @@
+{
+    "name": "rickrolly",
+    "version": "1.0.0",
+    "description": "RickRolly roulette game for the JHGambling Casino",
+    "main": "src/main.js",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "devDependencies": {
+        "vite": "^6.3.5"
+    },
+    "keywords": [
+        "roulette",
+        "gambling",
+        "casino",
+        "rickrolly"
+    ],
+    "dependencies": {
+        "casino-sdk": "github:JHGambling/sdk"
+    }
+}
